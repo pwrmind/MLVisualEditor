@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en" x-data="app">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brain.js Visual Editor</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.0/dist/cdn.min.js"></script>
+    
+    <!-- D3.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+    
+    <!-- Brain.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/brain.js/2.0.0-beta.1/brain-browser.min.js"></script>
+    
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3a0ca3;
+            --success-color: #4cc9f0;
+            --dark-bg: #1a1a2e;
+            --card-bg: #16213e;
+            --text-light: #e6e6e6;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--dark-bg);
+            color: var(--text-light);
+            min-height: 100vh;
+        }
+        
+        .navbar-custom {
+            background-color: var(--card-bg) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .card-custom {
+            background-color: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+        }
+        
+        .btn-primary-custom {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .btn-primary-custom:hover {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
+        }
+        
+        #networkCanvas {
+            width: 100%;
+            height: 500px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+        
+        .training-chart {
+            width: 100%;
+            height: 300px;
+        }
+        
+        .data-preview {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .progress-bar {
+            background-color: var(--primary-color);
+        }
+        
+        .alert-info {
+            background-color: rgba(67, 97, 238, 0.1);
+            border-color: var(--primary-color);
+            color: var(--text-light);
+        }
+        
+        .alert-success {
+            background-color: rgba(76, 201, 240, 0.1);
+            border-color: var(--success-color);
+            color: var(--text-light);
+        }
+        
+        .form-control, .form-select {
+            background-color: rgba(0, 0, 0, 0.3);
+            border-color: rgba(255, 255, 255, 0.1);
+            color: var(--text-light);
+        }
+        
+        .form-control:focus, .form-select:focus {
+            background-color: rgba(0, 0, 0, 0.5);
+            border-color: var(--primary-color);
+            color: var(--text-light);
+            box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.25);
+        }
+        
+        .border-dark {
+            border-color: rgba(255, 255, 255, 0.1) !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Навигационная панель -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-brain me-2"></i>
+                Brain.js Visual Editor
+            </a>
+            <div class="navbar-nav">
+                <button class="btn btn-outline-light btn-sm me-2" @click="saveModel">
+                    <i class="fas fa-save me-1"></i>Save Model
+                </button>
+                <button class="btn btn-outline-light btn-sm" @click="loadModel">
+                    <i class="fas fa-folder-open me-1"></i>Load Model
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Левая колонка: Архитектура сети и данные -->
+            <div class="col-md-4">
+                <!-- Network Architecture Card -->
+                <div class="card card-custom">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-project-diagram me-2"></i>Network Architecture</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Network Type</label>
+                            <select class="form-select" x-model="model.networkType" @change="createNetwork">
+                                <template x-for="type in brain.networkTypes" :key="type">
+                                    <option :value="type" x-text="type"></option>
+                                </template>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Input Size</label>
+                            <input type="number" class="form-control" 
+                                   x-model="model.networkConfig.inputSize" 
+                                   @change="updateNetworkConfig"
+                                   min="1" max="100">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Output Size</label>
+                            <input type="number" class="form-control" 
+                                   x-model="model.networkConfig.outputSize" 
+                                   @change="updateNetworkConfig"
+                                   min="1" max="100">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label mb-0">Hidden Layers</label>
+                                <button class="btn btn-sm btn-primary-custom" @click="addHiddenLayer">
+                                    <i class="fas fa-plus"></i> Add Layer
+                                </button>
+                            </div>
+                            
+                            <template x-for="(layer, index) in model.networkConfig.hiddenLayers" :key="index">
+                                <div class="d-flex mb-2">
+                                    <input type="number" class="form-control me-2" 
+                                           :value="layer" 
+                                           @input="updateHiddenLayerSize(index, $event.target.value)"
+                                           min="1" max="100" placeholder="Neurons">
+                                    <button class="btn btn-sm btn-danger" 
+                                            @click="removeHiddenLayer(index)"
+                                            :disabled="model.networkConfig.hiddenLayers.length <= 1">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Activation Function</label>
+                            <select class="form-select" 
+                                    x-model="model.networkConfig.activation" 
+                                    @change="updateNetworkConfig">
+                                <option value="sigmoid">Sigmoid</option>
+                                <option value="relu">ReLU</option>
+                                <option value="leaky-relu">Leaky ReLU</option>
+                                <option value="tanh">Tanh</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Learning Rate</label>
+                            <input type="range" class="form-range" 
+                                   x-model="model.networkConfig.learningRate" 
+                                   @change="updateNetworkConfig"
+                                   min="0.001" max="1" step="0.001">
+                            <div class="text-end text-muted" x-text="model.networkConfig.learningRate.toFixed(3)"></div>
+                        </div>
+                        
+                        <button class="btn btn-primary-custom w-100" @click="createNetwork">
+                            <i class="fas fa-redo me-2"></i>Update Network
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Data Management Card -->
+                <div class="card card-custom">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-database me-2"></i>Data Management</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Training Examples: <span x-text="model.trainingData.length"></span></span>
+                                <div>
+                                    <button class="btn btn-sm btn-primary-custom me-1" @click="addTrainingExample">
+                                        <i class="fas fa-plus"></i> Add
+                                    </button>
+                                    <button class="btn btn-sm btn-success me-1" @click="importData">
+                                        <i class="fas fa-file-import"></i> Import
+                                    </button>
+                                    <button class="btn btn-sm btn-info" @click="exportData">
+                                        <i class="fas fa-file-export"></i> Export
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="data-preview">
+                                <template x-for="(example, index) in model.trainingData.slice(0, 10)" :key="index">
+                                    <div class="d-flex justify-content-between align-items-center p-2 border-bottom border-dark">
+                                        <div>
+                                            <small class="text-muted">Input:</small>
+                                            <code class="ms-2" x-text="JSON.stringify(example.input)"></code>
+                                            <small class="text-muted ms-2">Output:</small>
+                                            <code class="ms-2" x-text="JSON.stringify(example.output)"></code>
+                                        </div>
+                                        <button class="btn btn-sm btn-danger" @click="removeTrainingExample(index)">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </template>
+                                <template x-if="model.trainingData.length > 10">
+                                    <div class="text-center text-muted mt-2">
+                                        ... and <span x-text="model.trainingData.length - 10"></span> more examples
+                                    </div>
+                                </template>
+                                <template x-if="model.trainingData.length === 0">
+                                    <div class="text-center text-muted p-3">
+                                        <i class="fas fa-database fa-2x mb-2"></i>
+                                        <p>No training data. Add examples or import data.</p>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <small>
+                                <i class="fas fa-info-circle me-1"></i>
+                                For NeuralNetwork: Use array inputs like [0, 1] and outputs like [1]
+                                <br>
+                                For RNN/LSTM: Use string inputs like "hello" and outputs like "world"
+                            </small>
+                        </div>
+                        
+                        <button class="btn btn-success w-100" @click="loadDemoData">
+                            <i class="fas fa-magic me-2"></i>Load Demo Data (XOR)
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Центральная колонка: Визуализация сети -->
+            <div class="col-md-4">
+                <div class="card card-custom">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-eye me-2"></i>Network Visualization</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="networkCanvas"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Правая колонка: Обучение и тестирование -->
+            <div class="col-md-4">
+                <!-- Training Configuration Card -->
+                <div class="card card-custom">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Training Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Iterations</label>
+                            <input type="number" class="form-control" 
+                                   x-model="model.trainingOptions.iterations" 
+                                   min="100" max="1000000" step="100">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Error Threshold</label>
+                            <input type="range" class="form-range" 
+                                   x-model="model.trainingOptions.errorThresh" 
+                                   min="0.0001" max="0.1" step="0.0001">
+                            <div class="text-end text-muted" x-text="model.trainingOptions.errorThresh.toFixed(4)"></div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Learning Rate</label>
+                            <input type="range" class="form-range" 
+                                   x-model="model.trainingOptions.learningRate" 
+                                   min="0.001" max="1" step="0.001">
+                            <div class="text-end text-muted" x-text="model.trainingOptions.learningRate.toFixed(3)"></div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Momentum</label>
+                            <input type="range" class="form-range" 
+                                   x-model="model.trainingOptions.momentum" 
+                                   min="0" max="1" step="0.01">
+                            <div class="text-end text-muted" x-text="model.trainingOptions.momentum.toFixed(2)"></div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-primary-custom" 
+                                    @click="trainNetwork" 
+                                    :disabled="model.trainingStatus.isTraining">
+                                <i class="fas fa-play me-2"></i>
+                                <span x-text="model.trainingStatus.isTraining ? 'Training...' : 'Start Training'"></span>
+                            </button>
+                            
+                            <button class="btn btn-warning" 
+                                    @click="stopTraining" 
+                                    :disabled="!model.trainingStatus.isTraining">
+                                <i class="fas fa-stop me-2"></i>Stop Training
+                            </button>
+                        </div>
+                        
+                        <div class="mt-3" x-show="model.trainingStatus.isTraining">
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" 
+                                     :style="'width: ' + 
+                                     (model.trainingStatus.currentIteration / model.trainingOptions.iterations * 100) + '%'"
+                                     :aria-valuenow="model.trainingStatus.currentIteration" 
+                                     aria-valuemin="0" 
+                                     :aria-valuemax="model.trainingOptions.iterations">
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between mt-1">
+                                <small>Iteration: <span x-text="model.trainingStatus.currentIteration"></span></small>
+                                <small>Error: <span x-text="model.trainingStatus.currentError.toFixed(6)"></span></small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Training Monitor Card -->
+                <div class="card card-custom">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Training Monitor</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="training-chart" id="trainingChart"></div>
+                    </div>
+                </div>
+                
+                <!-- Testing & Prediction Card -->
+                <div class="card card-custom">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-vial me-2"></i>Testing & Prediction</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Test Input</label>
+                            <div class="input-group">
+                                <span class="input-group-text">[</span>
+                                <input type="text" class="form-control" 
+                                       x-model="model.testInput"
+                                       placeholder="0, 1">
+                                <span class="input-group-text">]</span>
+                            </div>
+                            <small class="text-muted">Enter comma-separated values</small>
+                        </div>
+                        
+                        <div class="d-grid gap-2 mb-3">
+                            <button class="btn btn-primary-custom" @click="testNetwork">
+                                <i class="fas fa-bolt me-2"></i>Test Network
+                            </button>
+                            
+                            <button class="btn btn-info" @click="forecastNetwork" 
+                                    x-show="model.networkType.includes('TimeStep')">
+                                <i class="fas fa-chart-line me-2"></i>Forecast
+                            </button>
+                        </div>
+                        
+                        <div class="mt-3" x-show="model.testOutput !== null">
+                            <h6>Result:</h6>
+                            <div class="alert alert-success">
+                                <pre class="mb-0" x-text="JSON.stringify(model.testOutput, null, 2)"></pre>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <h6>Model Info</h6>
+                            <div class="text-muted small">
+                                <div>Type: <span x-text="model.networkType"></span></div>
+                                <div>Input size: <span x-text="model.networkConfig.inputSize"></span></div>
+                                <div>Output size: <span x-text="model.networkConfig.outputSize"></span></div>
+                                <div>Hidden layers: <span x-text="model.networkConfig.hiddenLayers.join(', ')"></span></div>
+                                <div>Activation: <span x-text="model.networkConfig.activation"></span></div>
+                                <div x-show="model.trainingStatus.errorHistory.length > 0">
+                                    Last error: <span x-text="model.trainingStatus.currentError.toFixed(6)"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card card-custom">
+                    <div class="card-body text-center">
+                        <p class="mb-1">
+                            <i class="fas fa-brain text-primary me-1"></i>
+                            <strong>Brain.js Visual Editor</strong> | 
+                            GPU-accelerated neural networks in JavaScript
+                        </p>
+                        <p class="text-muted small mb-0">
+                            Built with Alpine.js, Bootstrap, Brain.js, and D3.js | 
+                            <a href="https://brain.js.org" class="text-info" target="_blank">Brain.js Documentation</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Alpine.js приложение
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('app', () => ({
+                // Модель: состояние приложения
+                model: {
+                    networkType: 'NeuralNetwork',
+                    networkConfig: {
+                        inputSize: 2,
+                        hiddenLayers: [3],
+                        outputSize: 1,
+                        activation: 'sigmoid',
+                        learningRate: 0.3,
+                        binaryThresh: 0.5,
+                        leakyReluAlpha: 0.01
+                    },
+                    trainingData: [],
+                    trainingOptions: {
+                        iterations: 20000,
+                        errorThresh: 0.005,
+                        learningRate: 0.3,
+                        momentum: 0.1,
+                        log: true,
+                        logPeriod: 10
+                    },
+                    trainingStatus: {
+                        isTraining: false,
+                        currentIteration: 0,
+                        currentError: 0,
+                        errorHistory: []
+                    },
+                    testInput: "0, 0",
+                    testOutput: null,
+                    savedModels: []
+                },
+                
+                // Brain.js экземпляры
+                brain: {
+                    network: null,
+                    networkTypes: ['NeuralNetwork', 'LSTM', 'GRU', 'LSTMTimeStep', 'AE']
+                },
+                
+                // Инициализация приложения
+                init() {
+                    console.log('Brain.js Visual Editor initialized');
+                    this.createNetwork();
+                    this.initializeVisualization();
+                    this.loadDemoData();
+                },
+                
+                // Контроллеры сети
+                createNetwork() {
+                    const config = this.model.networkConfig;
+                    
+                    switch(this.model.networkType) {
+                        case 'NeuralNetwork':
+                            this.brain.network = new brain.NeuralNetwork({
+                                binaryThresh: config.binaryThresh,
+                                hiddenLayers: config.hiddenLayers,
+                                activation: config.activation,
+                                leakyReluAlpha: config.leakyReluAlpha
+                            });
+                            break;
+                            
+                        case 'LSTM':
+                            this.brain.network = new brain.recurrent.LSTM({
+                                inputSize: config.inputSize,
+                                hiddenLayers: config.hiddenLayers,
+                                outputSize: config.outputSize,
+                                learningRate: config.learningRate
+                            });
+                            break;
+                            
+                        case 'LSTMTimeStep':
+                            this.brain.network = new brain.recurrent.LSTMTimeStep({
+                                inputSize: config.inputSize,
+                                hiddenLayers: config.hiddenLayers,
+                                outputSize: config.outputSize
+                            });
+                            break;
+                            
+                        case 'AE':
+                            this.brain.network = new brain.AE({
+                                hiddenLayers: config.hiddenLayers
+                            });
+                            break;
+                            
+                        default:
+                            this.brain.network = new brain.NeuralNetwork();
+                    }
+                    
+                    console.log(`Created ${this.model.networkType} network`);
+                    this.updateVisualization();
+                },
+                
+                updateNetworkConfig() {
+                    this.createNetwork();
+                },
+                
+                addHiddenLayer() {
+                    this.model.networkConfig.hiddenLayers.push(3);
+                    this.updateNetworkConfig();
+                },
+                
+                removeHiddenLayer(index) {
+                    if (this.model.networkConfig.hiddenLayers.length > 1) {
+                        this.model.networkConfig.hiddenLayers.splice(index, 1);
+                        this.updateNetworkConfig();
+                    }
+                },
+                
+                updateHiddenLayerSize(index, value) {
+                    this.model.networkConfig.hiddenLayers[index] = parseInt(value) || 3;
+                    this.updateNetworkConfig();
+                },
+                
+                // Контроллеры данных
+                loadDemoData() {
+                    // XOR данные для демонстрации
+                    this.model.trainingData = [
+                        { input: [0, 0], output: [0] },
+                        { input: [0, 1], output: [1] },
+                        { input: [1, 0], output: [1] },
+                        { input: [1, 1], output: [0] }
+                    ];
+                    
+                    console.log('Demo data loaded');
+                },
+                
+                addTrainingExample() {
+                    const inputSize = this.model.networkConfig.inputSize;
+                    const outputSize = this.model.networkConfig.outputSize;
+                    
+                    const input = Array(inputSize).fill(0).map(() => Math.random());
+                    const output = Array(outputSize).fill(0).map(() => Math.random());
+                    
+                    this.model.trainingData.push({
+                        input: input,
+                        output: output
+                    });
+                },
+                
+                removeTrainingExample(index) {
+                    this.model.trainingData.splice(index, 1);
+                },
+                
+                importData() {
+                    const jsonStr = prompt('Paste your training data JSON:');
+                    try {
+                        const data = JSON.parse(jsonStr);
+                        if (Array.isArray(data)) {
+                            this.model.trainingData = data;
+                            console.log('Data imported successfully');
+                            alert('Data imported successfully!');
+                        } else {
+                            alert('Invalid data format. Expected array.');
+                        }
+                    } catch (e) {
+                        alert('Invalid JSON: ' + e.message);
+                    }
+                },
+                
+                exportData() {
+                    const jsonStr = JSON.stringify(this.model.trainingData, null, 2);
+                    const blob = new Blob([jsonStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'training_data.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                },
+                
+                // Контроллер обучения
+                async trainNetwork() {
+                    if (!this.brain.network || this.model.trainingData.length === 0) {
+                        alert('Please create a network and add training data first.');
+                        return;
+                    }
+                    
+                    this.model.trainingStatus.isTraining = true;
+                    this.model.trainingStatus.errorHistory = [];
+                    
+                    const options = {
+                        ...this.model.trainingOptions,
+                        callback: (status) => {
+                            this.model.trainingStatus.currentIteration = status.iterations;
+                            this.model.trainingStatus.currentError = status.error;
+                            this.model.trainingStatus.errorHistory.push({
+                                iteration: status.iterations,
+                                error: status.error
+                            });
+                            
+                            // Обновление графика каждые 10 итераций
+                            if (status.iterations % 10 === 0) {
+                                this.updateTrainingChart();
+                            }
+                        },
+                        callbackPeriod: 10
+                    };
+                    
+                    try {
+                        console.log('Starting training...');
+                        
+                        // Для асинхронного обучения
+                        if (this.brain.network.trainAsync) {
+                            const result = await this.brain.network.trainAsync(this.model.trainingData, options);
+                            console.log('Training completed:', result);
+                        } else {
+                            // Для синхронного обучения
+                            const result = this.brain.network.train(this.model.trainingData, options);
+                            console.log('Training completed:', result);
+                        }
+                        
+                        alert(`Training completed! Final error: ${this.model.trainingStatus.currentError.toFixed(6)}`);
+                    } catch (error) {
+                        console.error('Training error:', error);
+                        alert('Training failed: ' + error.message);
+                    } finally {
+                        this.model.trainingStatus.isTraining = false;
+                    }
+                },
+                
+                stopTraining() {
+                    this.model.trainingStatus.isTraining = false;
+                    console.log('Training stopped by user');
+                },
+                
+                // Контроллер тестирования
+                testNetwork() {
+                    if (!this.brain.network) {
+                        alert('Please create and train a network first.');
+                        return;
+                    }
+                    
+                    try {
+                        // Преобразуем строку в массив чисел
+                        const input = this.model.testInput.split(',').map(val => parseFloat(val.trim()));
+                        const output = this.brain.network.run(input);
+                        this.model.testOutput = output;
+                        
+                        console.log('Test result:', { input, output });
+                    } catch (error) {
+                        console.error('Test error:', error);
+                        alert('Test failed: ' + error.message);
+                    }
+                },
+                
+                forecastNetwork() {
+                    if (!this.brain.network || !this.brain.network.forecast) {
+                        alert('Forecast is only available for time series networks.');
+                        return;
+                    }
+                    
+                    try {
+                        const input = this.model.testInput.split(',').map(val => parseFloat(val.trim()));
+                        const forecastCount = 5;
+                        const forecast = this.brain.network.forecast(input, forecastCount);
+                        this.model.testOutput = forecast;
+                        
+                        console.log('Forecast result:', { input, forecast });
+                    } catch (error) {
+                        console.error('Forecast error:', error);
+                        alert('Forecast failed: ' + error.message);
+                    }
+                },
+                
+                // Сериализация/десериализация моделей
+                saveModel() {
+                    if (!this.brain.network) {
+                        alert('No network to save.');
+                        return;
+                    }
+                    
+                    const modelJSON = this.brain.network.toJSON();
+                    const modelName = prompt('Enter model name:', 'my_model');
+                    
+                    if (modelName) {
+                        const modelData = {
+                            name: modelName,
+                            type: this.model.networkType,
+                            config: this.model.networkConfig,
+                            json: modelJSON,
+                            date: new Date().toISOString()
+                        };
+                        
+                        this.model.savedModels.push(modelData);
+                        
+                        // Сохранение в localStorage
+                        localStorage.setItem('brainjs_models', JSON.stringify(this.model.savedModels));
+                        
+                        console.log('Model saved:', modelName);
+                        alert(`Model "${modelName}" saved successfully!`);
+                    }
+                },
+                
+                loadModel() {
+                    const models = JSON.parse(localStorage.getItem('brainjs_models') || '[]');
+                    
+                    if (models.length === 0) {
+                        alert('No saved models found.');
+                        return;
+                    }
+                    
+                    const modelList = models.map((m, i) => `${i + 1}. ${m.name} (${m.type}) - ${new Date(m.date).toLocaleDateString()}`).join('\n');
+                    const choice = prompt(`Available models:\n\n${modelList}\n\nEnter model number to load:`);
+                    
+                    const index = parseInt(choice) - 1;
+                    if (index >= 0 && index < models.length) {
+                        const selectedModel = models[index];
+                        
+                        this.model.networkType = selectedModel.type;
+                        this.model.networkConfig = selectedModel.config;
+                        
+                        this.createNetwork();
+                        this.brain.network.fromJSON(selectedModel.json);
+                        
+                        console.log('Model loaded:', selectedModel.name);
+                        alert(`Model "${selectedModel.name}" loaded successfully!`);
+                    }
+                },
+                
+                // Визуализация
+                initializeVisualization() {
+                    if (typeof window.initializeVisualization === 'function') {
+                        window.initializeVisualization();
+                    }
+                },
+                
+                updateVisualization() {
+                    if (typeof window.updateVisualization === 'function') {
+                        window.updateVisualization(this.model.networkConfig);
+                    }
+                },
+                
+                updateTrainingChart() {
+                    if (typeof window.updateTrainingChart === 'function') {
+                        window.updateTrainingChart(this.model.trainingStatus.errorHistory);
+                    }
+                }
+            }));
+        });
+    </script>
+
+    <script>
+        // D3.js визуализация
+        document.addEventListener('DOMContentLoaded', function() {
+            // Глобальные функции для визуализации
+            window.initializeVisualization = function() {
+                const container = d3.select('#networkCanvas');
+                container.selectAll('*').remove();
+                
+                const width = container.node().clientWidth;
+                const height = 500;
+                
+                const svg = container.append('svg')
+                    .attr('width', width)
+                    .attr('height', height)
+                    .attr('class', 'network-visualization');
+                
+                window.networkSVG = svg;
+                window.visualizationWidth = width;
+                window.visualizationHeight = height;
+                
+                console.log('Visualization initialized');
+            };
+            
+            window.updateVisualization = function(networkConfig) {
+                const svg = window.networkSVG;
+                if (!svg) return;
+                
+                const width = window.visualizationWidth;
+                const height = window.visualizationHeight;
+                
+                // Очистка предыдущей визуализации
+                svg.selectAll('*').remove();
+                
+                const layers = [
+                    { type: 'input', size: networkConfig.inputSize },
+                    ...networkConfig.hiddenLayers.map((size, i) => ({ 
+                        type: 'hidden', 
+                        size: size, 
+                        index: i 
+                    })),
+                    { type: 'output', size: networkConfig.outputSize }
+                ];
+                
+                const layerSpacing = width / (layers.length + 1);
+                const maxNeurons = Math.max(...layers.map(l => l.size));
+                const neuronSpacing = height / (maxNeurons + 1);
+                
+                // Рисование связей
+                for (let i = 0; i < layers.length - 1; i++) {
+                    const currentLayer = layers[i];
+                    const nextLayer = layers[i + 1];
+                    
+                    const currentX = layerSpacing * (i + 1);
+                    const nextX = layerSpacing * (i + 2);
+                    
+                    for (let j = 0; j < currentLayer.size; j++) {
+                        const currentY = (height / (currentLayer.size + 1)) * (j + 1);
+                        
+                        for (let k = 0; k < nextLayer.size; k++) {
+                            const nextY = (height / (nextLayer.size + 1)) * (k + 1);
+                            
+                            svg.append('line')
+                                .attr('x1', currentX)
+                                .attr('y1', currentY)
+                                .attr('x2', nextX)
+                                .attr('y2', nextY)
+                                .attr('stroke', 'rgba(76, 201, 240, 0.3)')
+                                .attr('stroke-width', 1);
+                        }
+                    }
+                }
+                
+                // Рисование нейронов
+                layers.forEach((layer, layerIndex) => {
+                    const x = layerSpacing * (layerIndex + 1);
+                    const neuronSpacing = height / (layer.size + 1);
+                    
+                    let color;
+                    if (layer.type === 'input') color = '#4cc9f0';
+                    else if (layer.type === 'hidden') color = '#4361ee';
+                    else color = '#f72585';
+                    
+                    for (let i = 0; i < layer.size; i++) {
+                        const y = neuronSpacing * (i + 1);
+                        
+                        svg.append('circle')
+                            .attr('cx', x)
+                            .attr('cy', y)
+                            .attr('r', 15)
+                            .attr('fill', color)
+                            .attr('stroke', '#fff')
+                            .attr('stroke-width', 2);
+                        
+                        svg.append('text')
+                            .attr('x', x)
+                            .attr('y', y)
+                            .attr('text-anchor', 'middle')
+                            .attr('dy', '0.3em')
+                            .attr('fill', 'white')
+                            .attr('font-weight', 'bold')
+                            .text(layer.type === 'input' ? `I${i+1}` : 
+                                  layer.type === 'output' ? `O${i+1}` : 
+                                  `H${layerIndex}${i+1}`);
+                    }
+                    
+                    // Подписи слоев
+                    svg.append('text')
+                        .attr('x', x)
+                        .attr('y', 20)
+                        .attr('text-anchor', 'middle')
+                        .attr('fill', '#aaa')
+                        .attr('font-size', '12px')
+                        .text(layer.type === 'input' ? 'Input Layer' :
+                              layer.type === 'output' ? 'Output Layer' :
+                              `Hidden Layer ${layer.index + 1}`);
+                });
+                
+                // Информация о сети
+                svg.append('text')
+                    .attr('x', 10)
+                    .attr('y', 20)
+                    .attr('fill', '#aaa')
+                    .attr('font-size', '14px')
+                    .text(`Neurons: ${layers.reduce((sum, l) => sum + l.size, 0)} | ` +
+                          `Connections: ${layers.slice(0, -1).reduce((sum, l, i) => 
+                          sum + l.size * layers[i+1].size, 0)}`);
+            };
+            
+            window.updateTrainingChart = function(errorHistory) {
+                const container = d3.select('#trainingChart');
+                container.selectAll('*').remove();
+                
+                const width = container.node().clientWidth;
+                const height = 300;
+                const margin = { top: 20, right: 30, bottom: 40, left: 50 };
+                
+                const svg = container.append('svg')
+                    .attr('width', width)
+                    .attr('height', height);
+                
+                if (!errorHistory || errorHistory.length === 0) {
+                    svg.append('text')
+                        .attr('x', width / 2)
+                        .attr('y', height / 2)
+                        .attr('text-anchor', 'middle')
+                        .attr('fill', '#aaa')
+                        .text('Training data will appear here');
+                    return;
+                }
+                
+                const x = d3.scaleLinear()
+                    .domain([0, d3.max(errorHistory, d => d.iteration)])
+                    .range([margin.left, width - margin.right]);
+                
+                const y = d3.scaleLog() // Логарифмическая шкала для ошибки
+                    .domain([d3.min(errorHistory, d => d.error), d3.max(errorHistory, d => d.error)])
+                    .range([height - margin.bottom, margin.top]);
+                
+                const line = d3.line()
+                    .x(d => x(d.iteration))
+                    .y(d => y(d.error))
+                    .curve(d3.curveMonotoneX);
+                
+                svg.append('path')
+                    .datum(errorHistory)
+                    .attr('fill', 'none')
+                    .attr('stroke', '#4cc9f0')
+                    .attr('stroke-width', 2)
+                    .attr('d', line);
+                
+                // Оси
+                const xAxis = g => g
+                    .attr('transform', `translate(0,${height - margin.bottom})`)
+                    .call(d3.axisBottom(x).ticks(width / 80))
+                    .call(g => g.select('.domain').remove());
+                
+                const yAxis = g => g
+                    .attr('transform', `translate(${margin.left},0)`)
+                    .call(d3.axisLeft(y))
+                    .call(g => g.select('.domain').remove());
+                
+                svg.append('g').call(xAxis);
+                svg.append('g').call(yAxis);
+                
+                // Метки осей
+                svg.append('text')
+                    .attr('x', width / 2)
+                    .attr('y', height - 5)
+                    .attr('text-anchor', 'middle')
+                    .attr('fill', '#aaa')
+                    .text('Iterations');
+                
+                svg.append('text')
+                    .attr('transform', 'rotate(-90)')
+                    .attr('x', -height / 2)
+                    .attr('y', 15)
+                    .attr('text-anchor', 'middle')
+                    .attr('fill', '#aaa')
+                    .text('Error (log scale)');
+            };
+            
+            // Автоматическое обновление визуализации при изменении размера окна
+            let resizeTimer;
+            window.addEventListener('resize', function() {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(function() {
+                    if (typeof window.initializeVisualization === 'function') {
+                        window.initializeVisualization();
+                        if (Alpine.$data && Alpine.$data.model && Alpine.$data.model.networkConfig) {
+                            window.updateVisualization(Alpine.$data.model.networkConfig);
+                        }
+                    }
+                }, 250);
+            });
+            
+            // Инициализация при загрузке
+            setTimeout(() => {
+                window.initializeVisualization();
+            }, 100);
+        });
+    </script>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
